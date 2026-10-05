@@ -75,13 +75,6 @@ def init_fn(in_dim, out_dim):
   b = np.zeros(out_dim)
   return W, b
 
-layer = make_dense(4, 3, init_fn)
-x = np.random.randn(8, 4)
-y, cache = layer['forward'](x)          # y.shape == (8, 3)
-dx, grads = layer['backward'](np.ones_like(y), cache)
-# dx.shape == (8, 4); grads['W'].shape == (4, 3); grads['b'].shape == (3,)
-print(sorted(layer['params'].keys()), y.shape, dx.shape, grads['W'].shape)
-
 # Step 4 - make_activation (not yet solved)
 # TODO: implement
 
