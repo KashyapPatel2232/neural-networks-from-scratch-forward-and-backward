@@ -117,8 +117,28 @@ dx, param_grads = layer['backward'](np.ones_like(y), cache)
 # dx.shape == (1, 3); param_grads == {}
 print(y.shape, dx.shape, param_grads, layer['params'])
 
-# Step 5 - initialize_weights (not yet solved)
-# TODO: implement
+# Step 5 - initialize_weights
+def initialize_weights(in_dim, out_dim, scheme='he'):
+    """Return (W, b) for a dense layer.
+
+    Inputs:
+      in_dim: int fan-in
+      out_dim: int fan-out
+      scheme: str initialization family (default 'he')
+
+    Returns:
+      W: np.ndarray shape (in_dim, out_dim), finite, symmetry-breaking,
+         scale stable with depth (fan-in dependent)
+      b: np.ndarray shape (out_dim,), near zero
+    """
+    # TODO: your approach here
+    if scheme == 'he':
+      W = np.random.randn(in_dim, out_dim)*np.sqrt(2/in_dim)
+      b = np.zeros(out_dim)
+    else:
+      W = np.random.randn(in_dim, out_dim)
+      b = np.zeros(out_dim)
+    return W, b
 
 # Step 6 - make_loss (not yet solved)
 # TODO: implement
