@@ -140,8 +140,37 @@ def initialize_weights(in_dim, out_dim, scheme='he'):
       b = np.zeros(out_dim)
     return W, b
 
-# Step 6 - make_loss (not yet solved)
-# TODO: implement
+# Step 6 - make_loss
+def make_loss(kind='cross_entropy'):
+    """Return a classification loss_fn(logits, labels) -> (loss, d_logits).
+
+    Inputs to loss_fn:
+      logits: (batch, C) float array of raw class scores
+      labels: (batch,) int array of class indices in [0, C)
+    Outputs:
+      loss: Python float, mean scalar loss over the batch (finite)
+      d_logits: (batch, C) gradient of loss w.r.t. logits (finite)
+    Must pass gradient_check, be minimized by confident correct predictions,
+    and stay finite under saturated logits.
+    """
+    # TODO: your approach here
+    def loss_fn(logits, labels):
+      
+      if kind == 'cross_entropy':
+        one_hot_label = np.zeros_like(logits)
+
+        for i in range(len(labels)):
+          one_hot_label[i, labels[i]] = 1
+
+        epsilon = 1e-12
+        logits_shifted = logits - np.max(logits, axis = 1, keepdims= True)
+        softmax = np.exp(logits_shifted)/np.sum(np.exp(logits_shifted), axis = 1, keepdims = True)
+        loss = -1* np.mean(np.sum(one_hot_label * np.log(softmax + epsilon), axis = 1))
+        d_logits = (softmax - one_hot_label)/len(logits)
+      
+      return loss, d_logits
+
+    return loss_fn
 
 # Step 7 - make_sequential (not yet solved)
 # TODO: implement
