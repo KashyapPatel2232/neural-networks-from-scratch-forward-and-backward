@@ -75,8 +75,47 @@ def init_fn(in_dim, out_dim):
   b = np.zeros(out_dim)
   return W, b
 
-# Step 4 - make_activation (not yet solved)
-# TODO: implement
+# Step 4 - make_activation
+def make_activation(kind='relu'):
+    """Create a genuinely nonlinear elementwise activation layer.
+
+    Args:
+        kind: str nonlinearity name. Default 'relu' must implement ReLU
+              (zero negatives, pass non-negatives). Other kinds optional.
+
+    Returns:
+        Layer dict with:
+          forward(x) -> (y, cache)
+            x, y: np.ndarray shape (batch, dim)
+          backward(dout, cache) -> (dx, {})
+            dout, dx: np.ndarray shape (batch, dim)
+            param grad dict is always empty (no learnable params)
+
+    Must be elementwise and non-affine; analytic dx must match
+    numerical_gradient / gradient_check.
+    """
+    # TODO: your approach here
+    if kind == 'relu':
+      def forward(x):
+        out = np.maximum(0, x)
+        return out, x
+      
+      def backward(dout, x):
+        dx = dout * (x>0)
+        return dx, {}
+
+    params = {}
+    
+    return {'forward':forward, 'backward':backward, 'params':params}
+
+
+
+layer = make_activation('relu')
+x = np.array([[-1.0, 0.5, 2.0]])          # shape (batch=1, dim=3)
+y, cache = layer['forward'](x)             # y.shape == (1, 3)
+dx, param_grads = layer['backward'](np.ones_like(y), cache)
+# dx.shape == (1, 3); param_grads == {}
+print(y.shape, dx.shape, param_grads, layer['params'])
 
 # Step 5 - initialize_weights (not yet solved)
 # TODO: implement
