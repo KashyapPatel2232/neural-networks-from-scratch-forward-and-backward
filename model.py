@@ -193,8 +193,44 @@ def make_sequential(layers):
     params = [layer['params'] for layer in layers]
     return {'forward':forward, 'backward':backward, 'params':params}
 
-# Step 8 - forward_backward (not yet solved)
-# TODO: implement
+# Step 8 - forward_backward
+def forward_backward(model, loss_fn, x, y):
+    """Run one full forward-backward sweep on a batch.
+
+    Inputs:
+      model: sequential dict with 'forward', 'backward', 'params'
+             model['forward'](x) -> (logits, caches)
+             model['backward'](d_logits, caches) -> (dx, param_grads)
+      loss_fn: callable (logits, y) -> (loss, d_logits)
+      x: np.ndarray (batch, in_dim)
+      y: np.ndarray (batch,) integer labels
+
+    Returns:
+      loss: float, scalar batch loss
+      param_grads: nested np.ndarrays matching model['params'] layout
+                   (gradients of loss w.r.t. every parameter)
+    """
+    # TODO: your approach here
+    out, caches = model['forward'](x)
+    loss, d_logits = loss_fn(out, y)
+    dx, param_grads = model['backward'](d_logits, caches)
+    return loss, param_grads
+
+
+init = lambda i, o: initialize_weights(i, o, scheme='he')
+model = make_sequential([
+    make_dense(4, 8, init),
+    make_activation('relu'),
+    make_dense(8, 3, init),
+])
+loss_fn = make_loss('cross_entropy')
+x = np.random.randn(5, 4)
+y = np.array([0, 1, 2, 1, 0])
+
+loss, param_grads = forward_backward(model, loss_fn, x, y)
+# loss: float
+# param_grads: nested ndarrays aligned with model['params']
+print(type(loss), len(param_grads), len(model['params']))
 
 # Step 9 - make_optimizer (not yet solved)
 # TODO: implement
