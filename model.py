@@ -77,45 +77,25 @@ def init_fn(in_dim, out_dim):
 
 # Step 4 - make_activation
 def make_activation(kind='relu'):
-    """Create a genuinely nonlinear elementwise activation layer.
-
-    Args:
-        kind: str nonlinearity name. Default 'relu' must implement ReLU
-              (zero negatives, pass non-negatives). Other kinds optional.
-
-    Returns:
-        Layer dict with:
-          forward(x) -> (y, cache)
-            x, y: np.ndarray shape (batch, dim)
-          backward(dout, cache) -> (dx, {})
-            dout, dx: np.ndarray shape (batch, dim)
-            param grad dict is always empty (no learnable params)
-
-    Must be elementwise and non-affine; analytic dx must match
-    numerical_gradient / gradient_check.
-    """
-    # TODO: your approach here
     if kind == 'relu':
-      def forward(x):
-        out = np.maximum(0, x)
-        return out, x
-      
-      def backward(dout, x):
-        dx = dout * (x>0)
-        return dx, {}
+        def forward(x):
+            return np.maximum(0, x), x
 
-    params = {}
-    
-    return {'forward':forward, 'backward':backward, 'params':params}
+        def backward(dout, x):
+            return dout * (x > 0), {}
 
+    elif kind == 'tanh':
+        def forward(x):
+            y = np.tanh(x)
+            return y, y
 
+        def backward(dout, y):
+            return dout * (1 - y**2), {}
 
-layer = make_activation('relu')
-x = np.array([[-1.0, 0.5, 2.0]])          # shape (batch=1, dim=3)
-y, cache = layer['forward'](x)             # y.shape == (1, 3)
-dx, param_grads = layer['backward'](np.ones_like(y), cache)
-# dx.shape == (1, 3); param_grads == {}
-print(y.shape, dx.shape, param_grads, layer['params'])
+    else:
+        raise ValueError(f"Unsupported activation: {kind}")
+
+    return {'forward': forward, 'backward': backward, 'params': {}}
 
 # Step 5 - initialize_weights
 def initialize_weights(in_dim, out_dim, scheme='he'):
@@ -172,8 +152,46 @@ def make_loss(kind='cross_entropy'):
 
     return loss_fn
 
-# Step 7 - make_sequential (not yet solved)
-# TODO: implement
+# Step 7 - make_sequential
+def make_sequential(layers):
+    """Compose protocol-honoring layers into one sequential model.
+
+    Inputs:
+      layers: list of layer dicts, each with
+        forward(x) -> (y, cache),
+        backward(dout, cache) -> (dx, grads_dict),
+        params: dict of ndarrays (possibly empty).
+
+    Returns a dict with:
+      forward(x) -> (y, caches)
+        y: final activation after applying every layer in order
+        caches: opaque structure needed by backward
+      backward(dout, caches) -> (dx, grads_list)
+        dx: gradient w.r.t. the original input x
+        grads_list: list of length len(layers); grads_list[i] is the
+          grads_dict from layers[i] ({} for param-free layers)
+      params: aggregated live view of all layer params, length len(layers),
+        same order as layers (so in-place updates affect the model)
+    """
+    # TODO: your approach here
+    def forward(x):
+      cache_ls = []
+      for func in layers:
+        x, cache = func['forward'](x)
+        cache_ls.append(cache)
+      return x, cache_ls
+    
+    def backward(dout, caches):
+      grads_list = []
+      for layer, cache in zip(reversed(layers), reversed(caches)):
+          dout, layer_grads = layer['backward'](dout, cache)
+          grads_list.append(layer_grads)
+
+      grads_list.reverse()
+      return dout, grads_list
+
+    params = [layer['params'] for layer in layers]
+    return {'forward':forward, 'backward':backward, 'params':params}
 
 # Step 8 - forward_backward (not yet solved)
 # TODO: implement
