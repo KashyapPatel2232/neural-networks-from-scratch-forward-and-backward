@@ -216,22 +216,6 @@ def forward_backward(model, loss_fn, x, y):
     dx, param_grads = model['backward'](d_logits, caches)
     return loss, param_grads
 
-
-init = lambda i, o: initialize_weights(i, o, scheme='he')
-model = make_sequential([
-    make_dense(4, 8, init),
-    make_activation('relu'),
-    make_dense(8, 3, init),
-])
-loss_fn = make_loss('cross_entropy')
-x = np.random.randn(5, 4)
-y = np.array([0, 1, 2, 1, 0])
-
-loss, param_grads = forward_backward(model, loss_fn, x, y)
-# loss: float
-# param_grads: nested ndarrays aligned with model['params']
-print(type(loss), len(param_grads), len(model['params']))
-
 # Step 9 - make_optimizer (not yet solved)
 # TODO: implement
 
