@@ -304,8 +304,91 @@ def train(model, loss_fn, optimizer, x, y, epochs, batch_size, seed=0):
       history.append(loss/n_batch)
     return history
 
-# Step 12 - design_network (not yet solved)
-# TODO: implement
+# Step 12 - design_network
+def design_network(input_dim, num_classes, seed=0):
+    if input_dim < 2 or num_classes < 2:
+        raise ValueError("input_dim and num_classes must be at least 2.")
+
+    data_rng = np.random.RandomState(seed)
+    samples_per_class = 256
+
+    if num_classes == 2:
+        # Two interleaving spirals
+        theta = np.sqrt(data_rng.rand(samples_per_class)) * 2 * np.pi
+
+        x0 = np.column_stack([
+            theta * np.cos(theta),
+            theta * np.sin(theta),
+        ])
+        x1 = np.column_stack([
+            theta * np.cos(theta + np.pi),
+            theta * np.sin(theta + np.pi),
+        ])
+
+        x_2d = np.vstack([x0, x1])
+        y = np.repeat(np.arange(2), samples_per_class)
+    else:
+        # One concentric ring per class
+        total_samples = samples_per_class * num_classes
+        y = np.repeat(np.arange(num_classes), samples_per_class)
+        theta = data_rng.uniform(0, 2 * np.pi, total_samples)
+        radius = 0.7 + 1.15 * y + data_rng.normal(0, 0.035, total_samples)
+
+        x_2d = np.column_stack([
+            radius * np.cos(theta),
+            radius * np.sin(theta),
+        ])
+
+    indices = data_rng.permutation(len(y))
+    x_2d, y = x_2d[indices], y[indices]
+
+    # The task is nonlinear in the first two dimensions; pad additional
+    # input dimensions with zeros when input_dim is greater than 2.
+    x = np.zeros((len(y), input_dim), dtype=float)
+    x[:, :2] = x_2d
+
+    split = int(0.78 * len(y))
+    x_train, y_train = x[:split], y[:split]
+    x_val, y_val = x[split:], y[split:]
+
+    init_rng = np.random.RandomState(seed)
+
+    def init_function(in_dim, out_dim):
+        weights = init_rng.randn(in_dim, out_dim) * np.sqrt(2.0 / in_dim)
+        bias = np.zeros(out_dim)
+        return weights, bias
+
+    layers = [
+        make_dense(input_dim, 128, init_function),
+        make_activation("relu"),
+        make_dense(128, 64, init_function),
+        make_activation("relu"),
+        make_dense(64, num_classes, init_function),
+    ]
+    model = make_sequential(layers)
+    loss_fn = make_loss("cross_entropy")
+    optimizer = make_optimizer(model["params"], lr=0.05)
+
+    for _ in range(120):
+        batch_order = data_rng.permutation(len(y_train))
+        for start in range(0, len(y_train), 32):
+            batch_indices = batch_order[start : start + 32]
+            train_step(
+                model,
+                loss_fn,
+                optimizer,
+                x_train[batch_indices],
+                y_train[batch_indices],
+            )
+
+    logits, _ = model["forward"](x_val)
+    accuracy = float(np.mean(np.argmax(logits, axis=1) == y_val))
+
+    return model, {
+        "accuracy": accuracy,
+        "x": x_val,
+        "y": y_val,
+    }
 
 # Step 13 - improve_generalization (not yet solved)
 # TODO: implement
