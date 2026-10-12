@@ -384,11 +384,7 @@ def design_network(input_dim, num_classes, seed=0):
     logits, _ = model["forward"](x_val)
     accuracy = float(np.mean(np.argmax(logits, axis=1) == y_val))
 
-    return model, {
-        "accuracy": accuracy,
-        "x": x_val,
-        "y": y_val,
-    }
+    return model, {"accuracy": accuracy,"x": x_val,"y": y_val}
 
 # Step 13 - improve_generalization (not yet solved)
 # TODO: implement
