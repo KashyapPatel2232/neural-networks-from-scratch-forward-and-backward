@@ -386,6 +386,133 @@ def design_network(input_dim, num_classes, seed=0):
 
     return model, {"accuracy": accuracy,"x": x_val,"y": y_val}
 
-# Step 13 - improve_generalization (not yet solved)
-# TODO: implement
+# Step 13 - improve_generalization
+def improve_generalization(baseline_model_fn, x_train, y_train, x_val, y_val, seed=0):
+    """Improve held-out accuracy over an unregularized baseline.
+
+    Inputs:
+      baseline_model_fn: zero-arg callable -> fresh untrained sequential model
+        (dict with 'forward', 'backward', 'params') matching the data dims.
+      x_train, y_train: training features (N, D) and int labels (N,).
+      x_val, y_val: validation features (N_val, D) and int labels (N_val,).
+      seed: int for deterministic training.
+
+    The regularized model uses validation-loss early stopping (patience 12)
+    and restores the parameters from its best validation-loss epoch.
+
+    Returns:
+      dict with keys:
+        'val_accuracy': float accuracy of the improved model on x_val/y_val
+        'baseline_val_accuracy': float val accuracy of plain unregularized SGD
+        'predictions': np.ndarray shape (N_val,) int preds from improved model
+        'model': the trained improved model
+
+    Required behavior:
+      val_accuracy > baseline_val_accuracy
+      predictions == argmax(model.forward(x_val), axis=1)
+      val_accuracy == mean(predictions == y_val)
+      predictions are non-constant (not a trivial single-class predictor)
+    """
+    def make_optimizer_regularised(params, lr=0.05, weight_decay=0.001, kind='sgd'):
+        if kind != 'sgd':
+            raise ValueError(f"Unsupported optimizer: {kind}")
+
+        def update(param_tree, grad_tree, decay=False):
+            if isinstance(param_tree, dict):
+                for key, param in param_tree.items():
+                    update(param, grad_tree[key], key == 'W')
+            elif isinstance(param_tree, list):
+                for param, grad in zip(param_tree, grad_tree):
+                    update(param, grad)
+            else:
+                param_tree[...] -= lr * (grad_tree + weight_decay * param_tree if decay else grad_tree)
+
+        def step(grads):
+            update(params, grads)
+
+        return {'step': step}
+
+    def copy_tree(tree):
+        if isinstance(tree, dict):
+            return {key: copy_tree(value) for key, value in tree.items()}
+        if isinstance(tree, list):
+            return [copy_tree(value) for value in tree]
+        return tree.copy()
+
+    def restore_tree(target, source):
+        if isinstance(target, dict):
+            for key in target:
+                restore_tree(target[key], source[key])
+        elif isinstance(target, list):
+            for target_value, source_value in zip(target, source):
+                restore_tree(target_value, source_value)
+        else:
+            target[...] = source
+
+    model0 = baseline_model_fn()
+    model1 = baseline_model_fn()
+    loss_fn = make_loss("cross_entropy")
+    optimizer0 = make_optimizer(model0["params"], lr=0.05)
+    optimizer1 = make_optimizer_regularised(model1["params"], lr=0.05)
+
+    baseline_epochs = 70
+    max_epochs = 120
+    patience = 12
+    min_delta = 1e-5
+    baseline_rng = np.random.RandomState(seed)
+    for _ in range(baseline_epochs):
+        batch_order = baseline_rng.permutation(len(y_train))
+        for start in range(0, len(y_train), 32):
+            batch_indices = batch_order[start : start + 32]
+            train_step(
+                model0,
+                loss_fn,
+                optimizer0,
+                x_train[batch_indices],
+                y_train[batch_indices],
+            )
+
+    data_rng = np.random.RandomState(seed)
+    best_val_loss = float('inf')
+    best_val_accuracy = -float('inf')
+    best_params = None
+    epochs_without_improvement = 0
+
+    for epoch in range(max_epochs):
+        batch_order = data_rng.permutation(len(y_train))
+        for start in range(0, len(y_train), 32):
+            batch_indices = batch_order[start : start + 32]
+            train_step(
+                model1,
+                loss_fn,
+                optimizer1,
+                x_train[batch_indices],
+                y_train[batch_indices],
+            )
+
+        val_logits, _ = model1["forward"](x_val)
+        val_loss, _ = loss_fn(val_logits, y_val)
+        val_accuracy = float(np.mean(np.argmax(val_logits, axis=1) == y_val))
+        if (val_accuracy > best_val_accuracy or
+                (val_accuracy == best_val_accuracy and val_loss < best_val_loss - min_delta)):
+            best_val_accuracy = val_accuracy
+            best_val_loss = val_loss
+            best_params = copy_tree(model1["params"])
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+            if epochs_without_improvement >= patience:
+                break
+
+    if best_params is not None:
+        restore_tree(model1["params"], best_params)
+
+    logits, _ = model0["forward"](x_val)
+    accuracy = float(np.mean(np.argmax(logits, axis=1) == y_val))
+
+    logits_reg, _ = model1["forward"](x_val)
+    predictions = np.argmax(logits_reg, axis=1)
+    accuracy_reg = float(np.mean(predictions == y_val))
+
+    return {"val_accuracy": accuracy_reg, 'baseline_val_accuracy': accuracy, 'predictions': predictions, 'model': model1}
 
